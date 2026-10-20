@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RemoteWindow Dashboard</title>
+    <!-- <link rel="stylesheet" href="style.css" /> -->
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Courier New", monospace;
+        background: #0d0d0d;
+        color: #00ff00;
+      }
+
+      .header {
+        background: #1a1a1a;
+        padding: 15px;
+        text-align: center;
+        border-bottom: 2px solid #00ff00;
+      }
+
+      .sessions {
+        display: flex;
+        height: calc(100vh - 60px);
+      }
+
+      .session-list {
+        width: 250px;
+        background: #1a1a1a;
+        overflow-y: auto;
+        border-right: 1px solid #333;
+      }
+
+      .session-item {
+        padding: 15px;
+        cursor: pointer;
+        border-bottom: 1px solid #333;
+        transition: background 0.2s;
+      }
+
+      .session-item:hover {
+        background: #2a2a2a;
+      }
+
+      .session-item.active {
+        background: #2d4a2d;
+      }
+
+      .terminal-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .terminal-output {
+        flex: 1;
+        padding: 15px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-all;
+        background: #000;
+      }
+
+      .terminal-input-area {
+        display: flex;
+        border-top: 1px solid #333;
+      }
+
+      .terminal-input {
+        flex: 1;
+        padding: 15px;
+        background: #000;
+        color: #00ff00;
+        border: none;
+        outline: none;
+        font-family: "Courier New", monospace;
+      }
+
+      .send-btn {
+        padding: 15px 25px;
+        background: #00aa00;
+        color: #000;
+        border: none;
+        cursor: pointer;
+        font-weight: bold;
+      }
+
+      .send-btn:hover {
+        background: #00cc00;
+      }
+
+      .system-msg {
+        color: #ffff00;
+      }
+
+      .user-cmd {
+        color: #00ffff;
+      }
+
+      .cursor::after {
+        content: "_";
+        animation: blink 1s infinite;
+      }
+
+      @keyframes blink {
+        0%,
+        50% {
+          opacity: 1;
+        }
+
+        51%,
+        100% {
+          opacity: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>🖥️ RemoteWindow Dashboard</h1>
+    </div>
+    <div
+      style="padding: 10px; background: #1a1a1a; border-bottom: 1px solid #333"
+    >
+      <input type="file" id="fileUpload" />
+      <button class="send-btn" onclick="uploadFile()">Upload</button>
+    </div>
+    <div class="sessions">
+      <div class="session-list" id="sessionList">
+        <div style="padding: 15px; color: #666">No active sessions</div>
+      </div>
+      <div class="terminal-container">
+        <div class="terminal-output" id="terminalOutput"></div>
+        <div class="terminal-input-area">
+          <input
+            type="text"
+            class="terminal-input"
+            id="terminalInput"
+            placeholder="Type command and press Enter..."
+            autofocus
+          />
+          <button class="send-btn" id="sendBtn">SEND</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const ws = new WebSocket(`ws://${window.location.host}`);
+      const terminalOutput = document.getElementById("terminalOutput");
+      const terminalInput = document.getElementById("terminalInput");
+      const sessionList = document.getElementById("sessionList");
+      let activeSession = null;
+
+      ws.onopen = () => console.log("[+] Connected to dashboard");
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+
+        if (data.sessionId === "system") {
+          appendToTerminal(data.message, "system-msg");
+
+          // If a new session just connected, auto-select it
+          if (data.message.includes("connected")) {
+            activeSession = data.message.split(" ")[2]; // Extract ID from message
+            updateSessionList();
+          }
+        } else {
+          if (data.sessionId === activeSession) {
+            appendToTerminal(data.message);
+          }
+          updateSessionList();
+        }
+      };
+
+      function appendToTerminal(text, className = "") {
+        const line = document.createElement("div");
+        line.className = className;
+        line.textContent = text;
+        terminalOutput.appendChild(line);
+        terminalOutput.scrollTop = terminalOutput.scrollHeight;
+      }
+
+      function uploadFile() {
+        const fileInput = document.getElementById("fileUpload");
+        const file = fileInput.files[0];
+        if (!file || !activeSession)
+          return alert("Select a file and ensure a session is active.");
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target.result;
+          // Send as base64 to avoid encoding issues
+          ws.send(
+            JSON.stringify({
+              type: "file_upload",
+              sessionId: activeSession,
+              filename: file.name,
+              content: btoa(content), // Base64 encode
+            }),
+          );
+        };
+        reader.readAsText(file);
+      }
+
+      function updateSessionList() {
+        // This would be enhanced to show real sessions
+        // For now, we'll keep it simple
+      }
+
+      terminalInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter" && activeSession) {
+          const command = terminalInput.value + "\n";
+          ws.send(
+            JSON.stringify({
+              type: "input",
+              sessionId: activeSession,
+              content: command,
+            }),
+          );
+          appendToTerminal("$ " + command.trim(), "user-cmd");
+          terminalInput.value = "";
+        }
+      });
+
+      document.getElementById("sendBtn").addEventListener("click", () => {
+        if (activeSession && terminalInput.value) {
+          terminalInput.dispatchEvent(
+            new KeyboardEvent("keypress", { key: "Enter" }),
+          );
+        }
+      });
+    </script>
+  </body>
+</html>
