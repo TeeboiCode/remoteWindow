@@ -151,7 +151,8 @@
     </div>
 
     <script>
-      const ws = new WebSocket(`ws://${window.location.host}`);
+      // Use wss:// because Vercel is HTTPS
+      const ws = new WebSocket("wss://web-production-61bd9.up.railway.app");
       const terminalOutput = document.getElementById("terminalOutput");
       const terminalInput = document.getElementById("terminalInput");
       const sessionList = document.getElementById("sessionList");

@@ -125,6 +125,12 @@
     <div class="header">
       <h1>🖥️ RemoteWindow Dashboard</h1>
     </div>
+    <div
+      style="padding: 10px; background: #1a1a1a; border-bottom: 1px solid #333"
+    >
+      <input type="file" id="fileUpload" />
+      <button class="send-btn" onclick="uploadFile()">Upload</button>
+    </div>
     <div class="sessions">
       <div class="session-list" id="sessionList">
         <div style="padding: 15px; color: #666">No active sessions</div>
@@ -145,7 +151,8 @@
     </div>
 
     <script>
-      const ws = new WebSocket(`ws://${window.location.host}`);
+      // Use wss:// because Vercel is HTTPS
+      const ws = new WebSocket("wss://web-production-61bd9.up.railway.app");
       const terminalOutput = document.getElementById("terminalOutput");
       const terminalInput = document.getElementById("terminalInput");
       const sessionList = document.getElementById("sessionList");
@@ -158,12 +165,16 @@
 
         if (data.sessionId === "system") {
           appendToTerminal(data.message, "system-msg");
+
+          // If a new session just connected, auto-select it
+          if (data.message.includes("connected")) {
+            activeSession = data.message.split(" ")[2]; // Extract ID from message
+            updateSessionList();
+          }
         } else {
           if (data.sessionId === activeSession) {
             appendToTerminal(data.message);
           }
-
-          // Update session list
           updateSessionList();
         }
       };
@@ -174,6 +185,28 @@
         line.textContent = text;
         terminalOutput.appendChild(line);
         terminalOutput.scrollTop = terminalOutput.scrollHeight;
+      }
+
+      function uploadFile() {
+        const fileInput = document.getElementById("fileUpload");
+        const file = fileInput.files[0];
+        if (!file || !activeSession)
+          return alert("Select a file and ensure a session is active.");
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target.result;
+          // Send as base64 to avoid encoding issues
+          ws.send(
+            JSON.stringify({
+              type: "file_upload",
+              sessionId: activeSession,
+              filename: file.name,
+              content: btoa(content), // Base64 encode
+            }),
+          );
+        };
+        reader.readAsText(file);
       }
 
       function updateSessionList() {
