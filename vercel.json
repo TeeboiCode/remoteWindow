@@ -1,18 +1,10 @@
 {
-    "builds": [
+    "buildCommand": null,
+    "outputDirectory": "public",
+    "rewrites": [
         {
-            "src": "public/*.html",
-            "use": "@vercel/static"
-        }
-    ],
-    "routes": [
-        {
-            "src": "/",
-            "dest": "/landing.html"
-        },
-        {
-            "src": "/(.*)",
-            "dest": "/$1"
+            "source": "/",
+            "destination": "/landing.html"
         }
     ]
 }
