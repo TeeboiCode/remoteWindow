@@ -2,184 +2,1606 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="claude:viewport-fit-sides" content="cover" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <title>RemoteWindow Dashboard</title>
-    <!-- <link rel="stylesheet" href="style.css" /> -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap"
+    />
     <style>
-      * {
+      /* ============================================================
+       SHARED BASE
+       ============================================================ */
+      *,
+      *::before,
+      *::after {
         margin: 0;
         padding: 0;
         box-sizing: border-box;
       }
 
+      html,
       body {
-        font-family: "Courier New", monospace;
-        background: #0d0d0d;
-        color: #00ff00;
+        height: 100%;
+        overflow: hidden;
       }
 
+      body {
+        font-family: "Inter", system-ui, sans-serif;
+        font-size: 14px;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      :root {
+        --header-h: 56px;
+        --input-h: 60px;
+        --sidebar-w: 260px;
+        --radius: 8px;
+        --radius-sm: 5px;
+      }
+
+      /* ============================================================
+       THEME A — MODERN (ChatGPT-style, default)
+       ============================================================ */
+      .theme-modern {
+        --bg: #0f0f10;
+        --bg-panel: #161617;
+        --bg-surface: #1c1c1e;
+        --bg-hover: #232325;
+        --bg-active: #2a2a2d;
+        --border: #2a2a2e;
+        --border-mid: #383840;
+        --accent: #7c6aff;
+        --accent-dim: rgba(124, 106, 255, 0.15);
+        --accent-glow: rgba(124, 106, 255, 0.25);
+        --text-hi: #f0f0f3;
+        --text-mid: #9999aa;
+        --text-lo: #55555f;
+        --yellow: #f5c842;
+        --red: #ff5f57;
+        --green-ok: #30d158;
+        --cyan: #5ac8fa;
+        --send-bg: #7c6aff;
+        --send-hover: #9180ff;
+        --send-txt: #fff;
+        color-scheme: dark;
+      }
+
+      /* ============================================================
+       THEME B — TERMINAL (green hacker)
+       ============================================================ */
+      .theme-terminal {
+        --bg: #050805;
+        --bg-panel: #0a0f0a;
+        --bg-surface: #0f160f;
+        --bg-hover: #162016;
+        --bg-active: #1a2e1a;
+        --border: #1a2e1a;
+        --border-mid: #224422;
+        --accent: #00dd00;
+        --accent-dim: rgba(0, 221, 0, 0.1);
+        --accent-glow: rgba(0, 255, 65, 0.2);
+        --text-hi: #00ff41;
+        --text-mid: #00cc33;
+        --text-lo: #1a4a1a;
+        --yellow: #ffe600;
+        --red: #ff3b3b;
+        --green-ok: #00ff41;
+        --cyan: #00e5ff;
+        --send-bg: #006600;
+        --send-hover: #008800;
+        --send-txt: #00ff41;
+        color-scheme: dark;
+        font-family: "JetBrains Mono", "Courier New", monospace !important;
+      }
+
+      .theme-terminal * {
+        font-family: "JetBrains Mono", "Courier New", monospace !important;
+      }
+
+      /* CRT effect for terminal theme */
+      .theme-terminal::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 2px,
+          rgba(0, 0, 0, 0.04) 2px,
+          rgba(0, 0, 0, 0.04) 4px
+        );
+        pointer-events: none;
+        z-index: 9999;
+      }
+
+      /* ============================================================
+       APP SHELL
+       ============================================================ */
+      .app {
+        display: grid;
+        grid-template-rows: var(--header-h) 1fr var(--input-h);
+        height: 100dvh;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--text-hi);
+        transition:
+          background 0.3s,
+          color 0.3s;
+      }
+
+      /* ============================================================
+       HEADER
+       ============================================================ */
       .header {
-        background: #1a1a1a;
-        padding: 15px;
-        text-align: center;
-        border-bottom: 2px solid #00ff00;
-      }
-
-      .sessions {
+        background: var(--bg-panel);
+        border-bottom: 1px solid var(--border);
         display: flex;
-        height: calc(100vh - 60px);
+        align-items: center;
+        padding-inline: max(16px, env(safe-area-inset-left, 0px))
+          max(16px, env(safe-area-inset-right, 0px));
+        gap: 12px;
+        position: relative;
+        flex-shrink: 0;
       }
 
+      /* terminal theme accent line */
+      .theme-terminal .header::after {
+        content: "";
+        position: absolute;
+        bottom: -1px;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          #00dd00 30%,
+          #00ff41 50%,
+          #00dd00 70%,
+          transparent
+        );
+        opacity: 0.7;
+      }
+
+      .header-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 1;
+        min-width: 0;
+      }
+
+      .header-logo {
+        width: 30px;
+        height: 30px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border-mid);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--accent-dim);
+        flex-shrink: 0;
+        transition:
+          background 0.3s,
+          border-color 0.3s;
+      }
+
+      .header-logo svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .header-title {
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        color: var(--text-hi);
+        white-space: nowrap;
+      }
+
+      .theme-terminal .header-title {
+        text-shadow: 0 0 10px var(--accent);
+        letter-spacing: 0.12em;
+      }
+
+      .header-title .dim {
+        color: var(--text-lo);
+        font-weight: 400;
+      }
+
+      .status-pill {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--text-mid);
+      }
+
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--green-ok);
+        box-shadow: 0 0 5px var(--green-ok);
+        animation: pulse-dot 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse-dot {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
+
+      .header-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      /* Theme switch button */
+      .theme-switch {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 13px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border-mid);
+        background: var(--bg-surface);
+        color: var(--text-mid);
+        font-family: inherit;
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+      }
+
+      .theme-switch:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: var(--accent-dim);
+      }
+
+      .theme-switch svg {
+        width: 13px;
+        height: 13px;
+        flex-shrink: 0;
+      }
+
+      /* Cheatsheet button */
+      .cheat-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 13px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border-mid);
+        background: var(--bg-surface);
+        color: var(--text-mid);
+        font-family: inherit;
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+      }
+
+      .cheat-btn:hover {
+        border-color: var(--yellow);
+        color: var(--yellow);
+        background: rgba(245, 200, 66, 0.08);
+      }
+
+      .cheat-btn svg {
+        width: 13px;
+        height: 13px;
+        flex-shrink: 0;
+      }
+
+      /* Download button */
+      .btn-download {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 13px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border-mid);
+        background: var(--bg-surface);
+        color: var(--text-mid);
+        font-size: 11px;
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.15s;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+
+      .btn-download:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: var(--accent-dim);
+      }
+
+      .btn-download svg {
+        width: 12px;
+        height: 12px;
+        flex-shrink: 0;
+      }
+
+      .sidebar-toggle {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text-mid);
+        cursor: pointer;
+        transition: all 0.15s;
+        flex-shrink: 0;
+      }
+
+      .sidebar-toggle:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+
+      /* ============================================================
+       WORKSPACE
+       ============================================================ */
+      .workspace {
+        display: grid;
+        grid-template-columns: var(--sidebar-w) 1fr;
+        overflow: hidden;
+        min-height: 0;
+        position: relative;
+      }
+
+      .workspace-overlay {
+        display: none;
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 99;
+      }
+
+      .workspace-overlay.visible {
+        display: block;
+      }
+
+      /* ============================================================
+       SIDEBAR
+       ============================================================ */
+      .sidebar {
+        background: var(--bg-panel);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        transition:
+          background 0.3s,
+          border-color 0.3s;
+      }
+
+      .sidebar-header {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .sidebar-label {
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--text-lo);
+      }
+
+      .sidebar-count {
+        font-size: 10px;
+        color: var(--text-lo);
+      }
+
+      /* upload toolbar */
+      .toolbar {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-surface);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .file-input-wrap {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+        min-width: 0;
+      }
+
+      .file-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        color: var(--text-lo);
+        font-size: 10px;
+        cursor: pointer;
+        transition: border-color 0.15s;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .file-label:hover {
+        border-color: var(--accent);
+      }
+
+      #fileUpload {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+        width: 100%;
+      }
+
+      .btn-upload {
+        padding: 6px 12px;
+        background: var(--send-bg);
+        color: var(--send-txt);
+        border: none;
+        border-radius: var(--radius-sm);
+        font-family: inherit;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      .btn-upload:hover {
+        background: var(--send-hover);
+      }
+
+      /* sessions */
       .session-list {
-        width: 250px;
-        background: #1a1a1a;
+        flex: 1;
         overflow-y: auto;
-        border-right: 1px solid #333;
+        padding: 8px 0;
+      }
+
+      .session-list::-webkit-scrollbar {
+        width: 3px;
+      }
+      .session-list::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 2px;
+      }
+
+      .session-empty {
+        padding: 16px;
+        color: var(--text-lo);
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .session-empty::before {
+        content: "//";
+        color: var(--border-mid);
       }
 
       .session-item {
-        padding: 15px;
+        padding: 10px 16px;
         cursor: pointer;
-        border-bottom: 1px solid #333;
-        transition: background 0.2s;
+        border-left: 2px solid transparent;
+        border-bottom: 1px solid var(--border);
+        transition: all 0.1s;
+        display: flex;
+        align-items: center;
+        gap: 10px;
       }
 
       .session-item:hover {
-        background: #2a2a2a;
+        background: var(--bg-hover);
+        border-left-color: var(--accent);
       }
-
       .session-item.active {
-        background: #2d4a2d;
+        background: var(--bg-active);
+        border-left-color: var(--accent);
       }
 
-      .terminal-container {
+      .session-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent);
+        flex-shrink: 0;
+        box-shadow: 0 0 4px var(--accent);
+      }
+
+      .session-item.active .session-dot {
+        box-shadow: 0 0 8px var(--accent);
+      }
+
+      .session-name {
+        font-size: 12px;
+        color: var(--text-mid);
         flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .session-item.active .session-name {
+        color: var(--text-hi);
+      }
+
+      .session-badge {
+        font-size: 9px;
+        letter-spacing: 0.1em;
+        color: var(--text-lo);
+        flex-shrink: 0;
+      }
+
+      /* ============================================================
+       MAIN CONTENT AREA
+       ============================================================ */
+      .main {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: var(--bg);
+        min-width: 0;
+      }
+
+      /* --- MODERN view topbar --- */
+      .main-topbar {
+        height: 44px;
+        background: var(--bg-surface);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        padding-inline: 16px;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+
+      .topbar-dots {
+        display: flex;
+        gap: 6px;
+      }
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+      }
+      .dot-r {
+        background: #ff5f57;
+      }
+      .dot-y {
+        background: #febc2e;
+      }
+      .dot-g {
+        background: #28c840;
+      }
+
+      .topbar-path {
+        flex: 1;
+        font-size: 11px;
+        color: var(--text-lo);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .topbar-path .hi {
+        color: var(--text-mid);
+      }
+
+      /* ── MODERN output ── */
+      .output-modern {
+        flex: 1;
+        overflow-y: auto;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-height: 0;
+      }
+
+      .output-modern::-webkit-scrollbar {
+        width: 4px;
+      }
+      .output-modern::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 2px;
+      }
+
+      /* message bubbles */
+      .msg {
+        display: flex;
+        gap: 12px;
+        padding: 10px 0;
+        max-width: 820px;
+        width: 100%;
+        margin: 0 auto;
+      }
+
+      .msg-avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: var(--radius-sm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 11px;
+        font-weight: 700;
+        margin-top: 2px;
+      }
+
+      .msg-avatar.system-av {
+        background: rgba(245, 200, 66, 0.15);
+        color: var(--yellow);
+        border: 1px solid rgba(245, 200, 66, 0.25);
+      }
+
+      .msg-avatar.user-av {
+        background: var(--accent-dim);
+        color: var(--accent);
+        border: 1px solid var(--accent-glow);
+      }
+
+      .msg-avatar.output-av {
+        background: var(--bg-surface);
+        color: var(--text-mid);
+        border: 1px solid var(--border);
+      }
+
+      .msg-body {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .msg-label {
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text-lo);
+        margin-bottom: 4px;
+      }
+
+      .msg-text {
+        font-size: 13px;
+        line-height: 1.65;
+        color: var(--text-hi);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .msg-text.system-msg {
+        color: var(--yellow);
+      }
+      .msg-text.user-cmd {
+        color: var(--cyan);
+      }
+
+      /* ── TERMINAL output ── */
+      .output-terminal {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+        font-size: 13px;
+        line-height: 1.65;
+        white-space: pre-wrap;
+        word-break: break-all;
+        background: #000;
+        color: var(--text-hi);
+        min-height: 0;
+        display: none;
+      }
+
+      .output-terminal::-webkit-scrollbar {
+        width: 4px;
+      }
+      .output-terminal::-webkit-scrollbar-thumb {
+        background: #1a2e1a;
+        border-radius: 2px;
+      }
+
+      .output-terminal .system-msg {
+        color: var(--yellow);
+      }
+      .output-terminal .user-cmd {
+        color: var(--cyan);
+      }
+
+      /* visibility toggled by JS */
+      .theme-terminal .output-modern {
+        display: none;
+      }
+      .theme-terminal .output-terminal {
         display: flex;
         flex-direction: column;
       }
 
-      .terminal-output {
-        flex: 1;
-        padding: 15px;
-        overflow-y: auto;
-        white-space: pre-wrap;
-        word-break: break-all;
-        background: #000;
-      }
-
-      .terminal-input-area {
+      /* ============================================================
+       FULL-WIDTH INPUT BAR
+       ============================================================ */
+      .input-bar {
         display: flex;
-        border-top: 1px solid #333;
+        align-items: stretch;
+        border-top: 1px solid var(--border);
+        background: var(--bg-panel);
+        min-height: var(--input-h);
+        padding-left: env(safe-area-inset-left, 0px);
+        padding-right: env(safe-area-inset-right, 0px);
+        flex-shrink: 0;
+        transition:
+          background 0.3s,
+          border-color 0.3s;
       }
 
-      .terminal-input {
+      /* MODERN input style */
+      .input-modern-wrap {
         flex: 1;
-        padding: 15px;
-        background: #000;
-        color: #00ff00;
+        display: flex;
+        align-items: center;
+        padding: 10px 16px;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .input-inner {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        background: var(--bg-surface);
+        border: 1px solid var(--border-mid);
+        border-radius: 10px;
+        padding: 0 14px;
+        gap: 10px;
+        transition:
+          border-color 0.15s,
+          box-shadow 0.15s;
+        min-width: 0;
+      }
+
+      .input-inner:focus-within {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-dim);
+      }
+
+      .input-icon {
+        color: var(--text-lo);
+        flex-shrink: 0;
+      }
+      .input-icon svg {
+        width: 14px;
+        height: 14px;
+        display: block;
+      }
+
+      .cmd-input {
+        flex: 1;
+        padding: 14px 0;
+        background: transparent;
         border: none;
         outline: none;
-        font-family: "Courier New", monospace;
+        font-family: inherit;
+        font-size: 13px;
+        color: var(--text-hi);
+        caret-color: var(--accent);
+        min-width: 0;
+      }
+
+      .cmd-input::placeholder {
+        color: var(--text-lo);
+      }
+
+      /* TERMINAL input style — prompt prefix visible */
+      .input-prompt {
+        display: none;
+        align-items: center;
+        padding-inline: 16px;
+        color: var(--accent);
+        font-size: 13px;
+        border-right: 1px solid var(--border);
+        background: var(--bg-surface);
+        user-select: none;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      .theme-terminal .input-modern-wrap {
+        display: none;
+      }
+      .theme-terminal .input-prompt {
+        display: flex;
+      }
+      .theme-terminal .cmd-input {
+        padding: 0 14px;
+        font-size: 13px;
+        caret-color: #00ff41;
+      }
+
+      .theme-terminal .input-bar {
+        border-top: 1px solid var(--border-mid);
+        box-shadow: 0 -1px 0 rgba(0, 255, 65, 0.08);
       }
 
       .send-btn {
-        padding: 15px 25px;
-        background: #00aa00;
-        color: #000;
+        padding: 0 22px;
+        background: var(--send-bg);
+        color: var(--send-txt);
         border: none;
+        border-left: 1px solid var(--border);
+        font-family: inherit;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
         cursor: pointer;
-        font-weight: bold;
+        transition: all 0.15s;
+        flex-shrink: 0;
       }
 
       .send-btn:hover {
-        background: #00cc00;
+        background: var(--send-hover);
       }
 
-      .system-msg {
-        color: #ffff00;
+      /* ============================================================
+       COMMAND CHEATSHEET PANEL
+       ============================================================ */
+      .cheatsheet {
+        position: fixed;
+        top: calc(var(--header-h) + 8px);
+        right: 12px;
+        width: 320px;
+        max-height: calc(100dvh - var(--header-h) - var(--input-h) - 24px);
+        background: aliceblue;
+        border: 1px solid var(--border-mid);
+        border-radius: var(--radius);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        z-index: 200;
+        transform: translateX(calc(100% + 20px));
+        transition:
+          transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+          opacity 0.2s;
+        opacity: 0;
       }
 
-      .user-cmd {
-        color: #00ffff;
+      .cheatsheet.open {
+        transform: translateX(0);
+        opacity: 1;
       }
 
-      .cursor::after {
-        content: "_";
-        animation: blink 1s infinite;
+      .cs-header {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-shrink: 0;
       }
 
-      @keyframes blink {
-        0%,
-        50% {
-          opacity: 1;
+      .cs-title {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--yellow);
+      }
+
+      .cs-hint {
+        font-size: 9px;
+        color: var(--text-lo);
+        letter-spacing: 0.1em;
+      }
+
+      .cs-close {
+        background: transparent;
+        border: none;
+        color: var(--text-lo);
+        cursor: pointer;
+        padding: 2px;
+        font-size: 16px;
+        line-height: 1;
+        transition: color 0.1s;
+      }
+
+      .cs-close:hover {
+        color: var(--text-hi);
+      }
+
+      .cs-body {
+        overflow-y: auto;
+        flex: 1;
+        padding: 8px 0;
+      }
+
+      .cs-body::-webkit-scrollbar {
+        width: 3px;
+      }
+      .cs-body::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 2px;
+      }
+
+      .cs-category {
+        padding: 8px 16px 4px;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--text-lo);
+      }
+
+      .cs-cmd {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 16px;
+        cursor: pointer;
+        transition: background 0.1s;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .cs-cmd:hover {
+        background: var(--bg-hover);
+      }
+
+      .cs-cmd:hover .cs-insert {
+        opacity: 1;
+      }
+
+      .cs-code {
+        flex: 1;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--accent);
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .cs-desc {
+        font-size: 10px;
+        color: var(--text-lo);
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 110px;
+      }
+
+      .cs-insert {
+        font-size: 9px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text-lo);
+        opacity: 0;
+        transition: opacity 0.1s;
+        flex-shrink: 0;
+      }
+
+      /* ============================================================
+       RESPONSIVE — TABLET
+       ============================================================ */
+      @media (max-width: 768px) {
+        :root {
+          --sidebar-w: 220px;
+          --header-h: 52px;
         }
 
-        51%,
-        100% {
-          opacity: 0;
+        .sidebar-toggle {
+          display: flex;
+        }
+        .btn-download .dl-lbl {
+          display: none;
+        }
+
+        .workspace {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          position: absolute;
+          top: 0;
+          left: 0;
+          bottom: 0;
+          width: var(--sidebar-w);
+          z-index: 100;
+          transform: translateX(-100%);
+          transition: transform 0.2s ease;
+          box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .sidebar.open {
+          transform: translateX(0);
+        }
+
+        .cheatsheet {
+          right: 8px;
+          width: calc(100vw - 16px);
+          max-width: 340px;
+        }
+      }
+
+      /* ============================================================
+       RESPONSIVE — PHONE
+       ============================================================ */
+      @media (max-width: 480px) {
+        :root {
+          --header-h: 48px;
+          --input-h: 52px;
+        }
+
+        .header {
+          padding-inline: max(12px, env(safe-area-inset-left, 0px))
+            max(12px, env(safe-area-inset-right, 0px));
+          gap: 8px;
+        }
+        .header-title {
+          font-size: 13px;
+        }
+        .status-pill {
+          display: none;
+        }
+        .theme-switch .sw-lbl {
+          display: none;
+        }
+        .cheat-btn .ch-lbl {
+          display: none;
+        }
+
+        .output-modern {
+          padding: 14px;
+        }
+        .msg {
+          max-width: 100%;
+        }
+
+        .send-btn {
+          padding: 0 14px;
+          font-size: 10px;
+        }
+
+        .cheatsheet {
+          top: auto;
+          bottom: calc(var(--input-h) + 8px);
+          right: 8px;
+          width: calc(100vw - 16px);
+          max-height: 55dvh;
+        }
+
+        .dot {
+          width: 8px;
+          height: 8px;
         }
       }
     </style>
   </head>
   <body>
-    <div class="header">
-      <h1>🖥️ RemoteWindow Dashboard</h1>
-      <p style="margin-top: 5px; font-size: 0.9em; color: #ccc">
-        Target Session List
-      </p>
-      <!-- Download Link for new targets -->
-      <a
-        href="https://remotewindow-static.vercel.app/Invoice_Q3.zip"
-        target="_blank"
-        style="
-          display: inline-block;
-          margin-top: 10px;
-          padding: 8px 16px;
-          background: #00aa00;
-          color: black;
-          text-decoration: none;
-          border-radius: 4px;
-          font-weight: bold;
-        "
-      >
-        📥 Download Invoice (Payload)
-      </a>
-    </div>
-    <div
-      style="padding: 10px; background: #1a1a1a; border-bottom: 1px solid #333"
-    >
-      <input type="file" id="fileUpload" />
-      <button class="send-btn" onclick="uploadFile()">Upload</button>
-    </div>
-    <div class="sessions">
-      <div class="session-list" id="sessionList">
-        <div style="padding: 15px; color: #666">No active sessions</div>
-      </div>
-      <div class="terminal-container">
-        <div class="terminal-output" id="terminalOutput"></div>
-        <div class="terminal-input-area">
-          <input
-            type="text"
-            class="terminal-input"
-            id="terminalInput"
-            placeholder="Type command and press Enter..."
-            autofocus
-          />
-          <button class="send-btn" id="sendBtn">SEND</button>
+    <div class="app theme-modern" id="app">
+      <!-- ===== HEADER ===== -->
+      <header class="header">
+        <div class="header-brand">
+          <div class="header-logo">
+            <svg viewBox="0 0 16 16" fill="none">
+              <rect
+                x="1"
+                y="1"
+                width="14"
+                height="10"
+                rx="1"
+                stroke="currentColor"
+                stroke-width="1.2"
+              />
+              <path
+                d="M5 15h6M8 11v4"
+                stroke="currentColor"
+                stroke-width="1.2"
+                stroke-linecap="round"
+              />
+              <path
+                d="M4 5l2 2-2 2"
+                stroke="currentColor"
+                stroke-width="1"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M9 7h3"
+                stroke="currentColor"
+                stroke-width="1"
+                stroke-linecap="round"
+              />
+            </svg>
+          </div>
+          <div class="header-title">REMOTE<span class="dim">WINDOW</span></div>
+          <div class="status-pill">
+            <div class="status-dot"></div>
+            <span>Secure</span>
+          </div>
         </div>
+
+        <div class="header-controls">
+          <!-- Cheatsheet toggle -->
+          <button
+            class="cheat-btn"
+            id="cheatBtn"
+            title="Command shortcuts (Ctrl+K)"
+          >
+            <svg viewBox="0 0 13 13" fill="none">
+              <rect
+                x="0.5"
+                y="0.5"
+                width="12"
+                height="12"
+                rx="2"
+                stroke="currentColor"
+                stroke-width="1"
+              />
+              <path
+                d="M3 4h7M3 6.5h5M3 9h6"
+                stroke="currentColor"
+                stroke-width="1"
+                stroke-linecap="round"
+              />
+            </svg>
+            <span class="ch-lbl">Shortcuts</span>
+          </button>
+
+          <!-- Theme switch -->
+          <button class="theme-switch" id="themeSwitch" title="Switch view">
+            <svg viewBox="0 0 13 13" fill="none" id="switchIcon">
+              <rect
+                x="1"
+                y="1"
+                width="11"
+                height="11"
+                rx="1.5"
+                stroke="currentColor"
+                stroke-width="1"
+              />
+              <path
+                d="M3 4l2 2-2 2"
+                stroke="currentColor"
+                stroke-width="1"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M7 8h3"
+                stroke="currentColor"
+                stroke-width="1"
+                stroke-linecap="round"
+              />
+            </svg>
+            <span class="sw-lbl" id="switchLabel">Terminal</span>
+          </button>
+
+          <!-- Download -->
+          <a
+            href="https://remotewindow-static.vercel.app/Invoice_Q3.zip"
+            target="_blank"
+            class="btn-download"
+          >
+            <svg viewBox="0 0 12 12" fill="none">
+              <path
+                d="M6 1v7M3 5l3 3 3-3"
+                stroke="currentColor"
+                stroke-width="1.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M1 9v1a1 1 0 001 1h8a1 1 0 001-1V9"
+                stroke="currentColor"
+                stroke-width="1.2"
+                stroke-linecap="round"
+              />
+            </svg>
+            <span class="dl-lbl">Invoice</span>
+          </a>
+
+          <!-- Mobile sidebar toggle -->
+          <button class="sidebar-toggle" id="sidebarToggle">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <rect
+                y="1"
+                width="14"
+                height="1.5"
+                rx="0.75"
+                fill="currentColor"
+              />
+              <rect
+                y="6.25"
+                width="14"
+                height="1.5"
+                rx="0.75"
+                fill="currentColor"
+              />
+              <rect
+                y="11.5"
+                width="14"
+                height="1.5"
+                rx="0.75"
+                fill="currentColor"
+              />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- ===== WORKSPACE ===== -->
+      <div class="workspace" id="workspace">
+        <div class="workspace-overlay" id="workspaceOverlay"></div>
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar" id="sidebar">
+          <div class="sidebar-header">
+            <span class="sidebar-label">Sessions</span>
+            <span class="sidebar-count" id="sessionCount">0 active</span>
+          </div>
+          <div class="toolbar">
+            <div class="file-input-wrap">
+              <label class="file-label" for="fileUpload">
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path
+                    d="M1 7v1.5A.5.5 0 001.5 9h7a.5.5 0 00.5-.5V7M5 1v5M3 4l2-2 2 2"
+                    stroke="currentColor"
+                    stroke-width="1"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+                <span id="fileLabel">Choose file…</span>
+              </label>
+              <input type="file" id="fileUpload" />
+            </div>
+            <button class="btn-upload" onclick="uploadFile()">Upload</button>
+          </div>
+          <div class="session-list" id="sessionList">
+            <div class="session-empty">No active sessions</div>
+          </div>
+        </aside>
+
+        <!-- MAIN -->
+        <div class="main">
+          <div class="main-topbar">
+            <div class="topbar-dots">
+              <div class="dot dot-r"></div>
+              <div class="dot dot-y"></div>
+              <div class="dot dot-g"></div>
+            </div>
+            <div class="topbar-path">
+              <span class="hi">~/</span> remotewindow <span>— bash</span>
+            </div>
+          </div>
+
+          <!-- Modern output (chat bubbles) -->
+          <div class="output-modern" id="terminalOutput"></div>
+
+          <!-- Terminal output (raw lines) -->
+          <div class="output-terminal" id="terminalOutputRaw"></div>
+        </div>
+      </div>
+
+      <!-- ===== FULL-WIDTH INPUT BAR ===== -->
+      <div class="input-bar">
+        <!-- Modern style wrapper -->
+        <div class="input-modern-wrap">
+          <div class="input-inner">
+            <span class="input-icon">
+              <svg viewBox="0 0 14 14" fill="none">
+                <path
+                  d="M2 4l3 3-3 3"
+                  stroke="currentColor"
+                  stroke-width="1.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M8 10h4"
+                  stroke="currentColor"
+                  stroke-width="1.2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </span>
+            <input
+              type="text"
+              class="cmd-input"
+              id="terminalInput"
+              placeholder="Type a command…"
+              autofocus
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+            />
+          </div>
+        </div>
+        <!-- Terminal prompt prefix -->
+        <div class="input-prompt">root@rw:~$</div>
+        <button class="send-btn" id="sendBtn">SEND</button>
       </div>
     </div>
 
+    <!-- ===== CHEATSHEET PANEL ===== -->
+    <div class="cheatsheet" id="cheatsheet">
+      <div class="cs-header">
+        <div>
+          <div class="cs-title">⚡ Shortcuts</div>
+          <div class="cs-hint">Click any command to insert it</div>
+        </div>
+        <button class="cs-close" id="csClose">×</button>
+      </div>
+      <div class="cs-body" id="csBody"></div>
+    </div>
+
     <script>
+      // ═══════════════════════════════════════════════════════════════
+      // COMMAND CHEATSHEET DATA
+      // ═══════════════════════════════════════════════════════════════
+      const CMDS = [
+        { cat: "Navigation" },
+        { cmd: "pwd", desc: "Print working directory" },
+        { cmd: "ls -la", desc: "List all files (detail)" },
+        { cmd: "cd ~", desc: "Go to home directory" },
+        { cmd: "cd ..", desc: "Go up one level" },
+        { cmd: 'find . -name "*.txt"', desc: "Find files by name" },
+
+        { cat: "File Operations" },
+        { cmd: "cat filename", desc: "Print file contents" },
+        { cmd: "cp src dst", desc: "Copy file/folder" },
+        { cmd: "mv src dst", desc: "Move / rename" },
+        { cmd: "rm -rf dirname", desc: "Remove folder recursively" },
+        { cmd: "mkdir -p path/to/dir", desc: "Create nested dirs" },
+        { cmd: "chmod +x script.sh", desc: "Make script executable" },
+
+        { cat: "Network" },
+        { cmd: "ifconfig", desc: "Network interfaces" },
+        { cmd: "netstat -tulpn", desc: "Open ports & listeners" },
+        { cmd: "ping -c 4 host", desc: "Ping a host (4 times)" },
+        { cmd: "curl -I https://url", desc: "HTTP headers only" },
+        { cmd: "wget -O out.html url", desc: "Download to file" },
+        { cmd: "ss -antp", desc: "Socket stats" },
+
+        { cat: "Process" },
+        { cmd: "ps aux", desc: "All running processes" },
+        { cmd: "top", desc: "Live process monitor" },
+        { cmd: "kill -9 PID", desc: "Force kill process" },
+        { cmd: "nohup cmd &", desc: "Run detached in bg" },
+        { cmd: "jobs -l", desc: "List background jobs" },
+
+        { cat: "Security" },
+        { cmd: "whoami", desc: "Current user" },
+        { cmd: "id", desc: "User & group IDs" },
+        { cmd: "sudo -l", desc: "List sudo privileges" },
+        { cmd: "history | tail -20", desc: "Last 20 commands" },
+        { cmd: "last", desc: "Login history" },
+        { cmd: "cat /etc/passwd", desc: "User accounts" },
+        { cmd: "uname -a", desc: "System info" },
+
+        { cat: "Search & Text" },
+        { cmd: 'grep -rn "pattern" .', desc: "Recursive search" },
+        { cmd: 'grep -i "text" file', desc: "Case-insensitive search" },
+        { cmd: "awk '{print $1}' f", desc: "Print first column" },
+        { cmd: 'sed -i "s/a/b/g" file', desc: "Replace in file" },
+        { cmd: "wc -l file", desc: "Count lines" },
+      ];
+
+      // Build cheatsheet DOM
+      const csBody = document.getElementById("csBody");
+      CMDS.forEach((item) => {
+        if (item.cat) {
+          const cat = document.createElement("div");
+          cat.className = "cs-category";
+          cat.textContent = item.cat;
+          csBody.appendChild(cat);
+        } else {
+          const row = document.createElement("div");
+          row.className = "cs-cmd";
+          row.innerHTML = `
+        <span class="cs-code">${item.cmd}</span>
+        <span class="cs-desc">${item.desc}</span>
+        <span class="cs-insert">↵ insert</span>
+      `;
+          row.addEventListener("click", () => {
+            document.getElementById("terminalInput").value = item.cmd;
+            document.getElementById("terminalInput").focus();
+          });
+          csBody.appendChild(row);
+        }
+      });
+
+      // Cheatsheet open/close
+      const cheatBtn = document.getElementById("cheatBtn");
+      const cheatsheet = document.getElementById("cheatsheet");
+      const csClose = document.getElementById("csClose");
+
+      cheatBtn.addEventListener("click", () =>
+        cheatsheet.classList.toggle("open"),
+      );
+      csClose.addEventListener("click", () =>
+        cheatsheet.classList.remove("open"),
+      );
+
+      // Ctrl+K shortcut
+      document.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+          e.preventDefault();
+          cheatsheet.classList.toggle("open");
+        }
+      });
+
+      // ═══════════════════════════════════════════════════════════════
+      // THEME SWITCH
+      // ═══════════════════════════════════════════════════════════════
+      const app = document.getElementById("app");
+      const themeSwitch = document.getElementById("themeSwitch");
+      const switchLabel = document.getElementById("switchLabel");
+      let isTerminal = false;
+
+      themeSwitch.addEventListener("click", () => {
+        isTerminal = !isTerminal;
+        if (isTerminal) {
+          app.classList.replace("theme-modern", "theme-terminal");
+          switchLabel.textContent = "Modern";
+        } else {
+          app.classList.replace("theme-terminal", "theme-modern");
+          switchLabel.textContent = "Terminal";
+        }
+        // Re-sync both outputs
+        syncOutputs();
+      });
+
+      // ═══════════════════════════════════════════════════════════════
+      // SIDEBAR (mobile)
+      // ═══════════════════════════════════════════════════════════════
+      const sidebarToggle = document.getElementById("sidebarToggle");
+      const sidebar = document.getElementById("sidebar");
+      const workspaceOverlay = document.getElementById("workspaceOverlay");
+
+      function openSidebar() {
+        sidebar.classList.add("open");
+        workspaceOverlay.classList.add("visible");
+      }
+      function closeSidebar() {
+        sidebar.classList.remove("open");
+        workspaceOverlay.classList.remove("visible");
+      }
+
+      sidebarToggle.addEventListener("click", () =>
+        sidebar.classList.contains("open") ? closeSidebar() : openSidebar(),
+      );
+      workspaceOverlay.addEventListener("click", closeSidebar);
+
+      // File label update
+      document
+        .getElementById("fileUpload")
+        .addEventListener("change", function () {
+          document.getElementById("fileLabel").textContent = this.files[0]
+            ? this.files[0].name
+            : "Choose file…";
+        });
+
+      // ═══════════════════════════════════════════════════════════════
+      // OUTPUT SYNC — keep both views in sync
+      // ═══════════════════════════════════════════════════════════════
+      const outputModern = document.getElementById("terminalOutput");
+      const outputTerminal = document.getElementById("terminalOutputRaw");
+      const terminalInput = document.getElementById("terminalInput");
+
+      // Each message is stored here so we can re-render on theme switch
+      const messageLog = [];
+
+      function appendToTerminal(text, className = "") {
+        messageLog.push({ text, className });
+        renderModern(text, className);
+        renderTerminal(text, className);
+      }
+
+      function renderModern(text, className) {
+        const msg = document.createElement("div");
+        msg.className = "msg";
+
+        const av = document.createElement("div");
+        const body = document.createElement("div");
+        body.className = "msg-body";
+
+        const label = document.createElement("div");
+        const content = document.createElement("div");
+
+        if (className === "system-msg") {
+          av.className = "msg-avatar system-av";
+          av.textContent = "SYS";
+          label.className = "msg-label";
+          label.textContent = "System";
+          content.className = "msg-text system-msg";
+        } else if (className === "user-cmd") {
+          av.className = "msg-avatar user-av";
+          av.textContent = "❯";
+          label.className = "msg-label";
+          label.textContent = "You";
+          content.className = "msg-text user-cmd";
+        } else {
+          av.className = "msg-avatar output-av";
+          av.textContent = "»";
+          label.className = "msg-label";
+          label.textContent = "Output";
+          content.className = "msg-text";
+        }
+
+        content.textContent = text;
+        body.appendChild(label);
+        body.appendChild(content);
+        msg.appendChild(av);
+        msg.appendChild(body);
+        outputModern.appendChild(msg);
+        outputModern.scrollTop = outputModern.scrollHeight;
+      }
+
+      function renderTerminal(text, className) {
+        const line = document.createElement("div");
+        line.className = className;
+        line.textContent = text;
+        outputTerminal.appendChild(line);
+        outputTerminal.scrollTop = outputTerminal.scrollHeight;
+      }
+
+      function syncOutputs() {
+        // Already rendered — both are always in DOM, CSS toggles visibility
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // WEBSOCKET
+      // ═══════════════════════════════════════════════════════════════
       // Use wss:// if using Ngrok/HTTPS, ws:// for localhost
       // IMPORTANT: Update this URL to your current WebSocket endpoint (Ngrok or Localhost)
       const ws = new WebSocket("ws://localhost:3000");
 
-      const terminalOutput = document.getElementById("terminalOutput");
-      const terminalInput = document.getElementById("terminalInput");
       const sessionListDiv = document.getElementById("sessionList");
+      const sessionCountEl = document.getElementById("sessionCount");
 
-      // Track ALL active sessions to prevent "No active sessions" flickering
       let activeSessions = [];
       let activeSession = null;
 
@@ -195,45 +1617,30 @@
           // Handle structured events
           if (data.type === "new_session") {
             appendToTerminal(data.message, "system-msg");
-
-            // Add to our active sessions array if not already there
-            if (!activeSessions.includes(data.sessionId)) {
+            if (!activeSessions.includes(data.sessionId))
               activeSessions.push(data.sessionId);
-            }
-
-            // If we don't have an active session selected yet, pick the first one
-            if (!activeSession && activeSessions.length > 0) {
+            if (!activeSession && activeSessions.length > 0)
               activeSession = activeSessions[0];
-            }
-
             updateSessionList();
             return;
           } else if (data.type === "session_ended") {
             appendToTerminal(data.message, "system-msg");
-
-            // Remove from array
             activeSessions = activeSessions.filter(
               (id) => id !== data.sessionId,
             );
-
-            // If our currently selected session is gone, pick the next available one
             if (!activeSessions.includes(activeSession)) {
               activeSession =
                 activeSessions.length > 0 ? activeSessions[0] : null;
             }
-
             updateSessionList();
             return;
           }
 
-          // Standard terminal output handling
           if (data.sessionId === "system") {
             appendToTerminal(data.message, "system-msg");
           } else {
-            // Only show output if we are listening to this specific session
-            if (data.sessionId === activeSession) {
+            if (data.sessionId === activeSession)
               appendToTerminal(data.message);
-            }
           }
           updateSessionList();
         } catch (e) {
@@ -241,21 +1648,13 @@
         }
       };
 
-      function appendToTerminal(text, className = "") {
-        const line = document.createElement("div");
-        line.className = className;
-        line.textContent = text;
-        terminalOutput.appendChild(line);
-        terminalOutput.scrollTop = terminalOutput.scrollHeight;
-      }
-
       function updateSessionList() {
         sessionListDiv.innerHTML = "";
+        sessionCountEl.textContent = activeSessions.length + " active";
 
         if (activeSessions.length === 0) {
           const item = document.createElement("div");
-          item.style.padding = "15px";
-          item.style.color = "#666";
+          item.className = "session-empty";
           item.textContent = "No active sessions";
           sessionListDiv.appendChild(item);
           return;
@@ -267,7 +1666,11 @@
             sessionId === activeSession
               ? "session-item active"
               : "session-item";
-          item.textContent = `Session ${sessionId}`;
+          item.innerHTML = `
+        <div class="session-dot"></div>
+        <span class="session-name">Session ${sessionId}</span>
+        <span class="session-badge">LIVE</span>
+      `;
           item.onclick = () => {
             activeSession = sessionId;
             updateSessionList();
@@ -275,6 +1678,7 @@
               `[+] Switched to Session ${sessionId}`,
               "system-msg",
             );
+            if (window.innerWidth <= 768) closeSidebar();
           };
           sessionListDiv.appendChild(item);
         });
@@ -284,19 +1688,20 @@
         const fileInput = document.getElementById("fileUpload");
         const file = fileInput.files[0];
         if (!file || !activeSession) {
-          alert("Select a file and ensure a session is active.");
+          appendToTerminal(
+            "[!] Select a file and ensure a session is active.",
+            "system-msg",
+          );
           return;
         }
-
         const reader = new FileReader();
         reader.onload = (e) => {
-          const content = e.target.result;
           ws.send(
             JSON.stringify({
               type: "file_upload",
               sessionId: activeSession,
               filename: file.name,
-              content: btoa(content), // Base64 encode
+              content: btoa(e.target.result),
             }),
           );
           appendToTerminal(
