@@ -171,42 +171,74 @@
     </div>
 
     <script>
-      // Use wss:// because Vercel/Railway is HTTPS
+      // Use wss:// if using Ngrok/HTTPS, ws:// for localhost
+      // IMPORTANT: Update this URL to your current WebSocket endpoint (Ngrok or Localhost)
       const ws = new WebSocket("ws://localhost:3000");
+
       const terminalOutput = document.getElementById("terminalOutput");
       const terminalInput = document.getElementById("terminalInput");
-      const sessionList = document.getElementById("sessionList");
+      const sessionListDiv = document.getElementById("sessionList");
+
+      // Track ALL active sessions to prevent "No active sessions" flickering
+      let activeSessions = [];
       let activeSession = null;
 
-      ws.onopen = () => console.log("[+] Connected to dashboard");
+      ws.onopen = () => {
+        console.log("[+] Connected to dashboard");
+        appendToTerminal("[+] Dashboard connected", "system-msg");
+      };
 
       ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
+        try {
+          const data = JSON.parse(event.data);
 
-        // Handle structured events from updated server.js
-        if (data.type === "new_session") {
-          appendToTerminal(data.message, "system-msg");
-          activeSession = data.sessionId;
-          updateSessionList();
-          return;
-        } else if (data.type === "session_ended") {
-          appendToTerminal(data.message, "system-msg");
-          if (activeSession === data.sessionId) {
-            activeSession = null;
+          // Handle structured events
+          if (data.type === "new_session") {
+            appendToTerminal(data.message, "system-msg");
+
+            // Add to our active sessions array if not already there
+            if (!activeSessions.includes(data.sessionId)) {
+              activeSessions.push(data.sessionId);
+            }
+
+            // If we don't have an active session selected yet, pick the first one
+            if (!activeSession && activeSessions.length > 0) {
+              activeSession = activeSessions[0];
+            }
+
             updateSessionList();
-          }
-          return;
-        }
+            return;
+          } else if (data.type === "session_ended") {
+            appendToTerminal(data.message, "system-msg");
 
-        // Standard terminal output handling
-        if (data.sessionId === "system") {
-          appendToTerminal(data.message, "system-msg");
-        } else {
-          if (data.sessionId === activeSession) {
-            appendToTerminal(data.message);
+            // Remove from array
+            activeSessions = activeSessions.filter(
+              (id) => id !== data.sessionId,
+            );
+
+            // If our currently selected session is gone, pick the next available one
+            if (!activeSessions.includes(activeSession)) {
+              activeSession =
+                activeSessions.length > 0 ? activeSessions[0] : null;
+            }
+
+            updateSessionList();
+            return;
           }
+
+          // Standard terminal output handling
+          if (data.sessionId === "system") {
+            appendToTerminal(data.message, "system-msg");
+          } else {
+            // Only show output if we are listening to this specific session
+            if (data.sessionId === activeSession) {
+              appendToTerminal(data.message);
+            }
+          }
+          updateSessionList();
+        } catch (e) {
+          console.error("Error parsing WS message:", e);
         }
-        updateSessionList();
       };
 
       function appendToTerminal(text, className = "") {
@@ -218,37 +250,43 @@
       }
 
       function updateSessionList() {
-        sessionList.innerHTML = "";
+        sessionListDiv.innerHTML = "";
 
-        // Get all active sessions from the Map logic or just track locally?
-        // Since we don't have a global list of IDs in the frontend,
-        // we can rely on the fact that we only care about the active one
-        // for input, but let's show the active one clearly.
-
-        if (activeSession) {
-          const item = document.createElement("div");
-          item.className = "session-item active";
-          item.textContent = `Session ${activeSession} (Active)`;
-          item.onclick = () => {
-            // Clicking re-confirms active session
-            activeSession = activeSession;
-            updateSessionList();
-          };
-          sessionList.appendChild(item);
-        } else {
+        if (activeSessions.length === 0) {
           const item = document.createElement("div");
           item.style.padding = "15px";
           item.style.color = "#666";
           item.textContent = "No active sessions";
-          sessionList.appendChild(item);
+          sessionListDiv.appendChild(item);
+          return;
         }
+
+        activeSessions.forEach((sessionId) => {
+          const item = document.createElement("div");
+          item.className =
+            sessionId === activeSession
+              ? "session-item active"
+              : "session-item";
+          item.textContent = `Session ${sessionId}`;
+          item.onclick = () => {
+            activeSession = sessionId;
+            updateSessionList();
+            appendToTerminal(
+              `[+] Switched to Session ${sessionId}`,
+              "system-msg",
+            );
+          };
+          sessionListDiv.appendChild(item);
+        });
       }
 
       function uploadFile() {
         const fileInput = document.getElementById("fileUpload");
         const file = fileInput.files[0];
-        if (!file || !activeSession)
-          return alert("Select a file and ensure a session is active.");
+        if (!file || !activeSession) {
+          alert("Select a file and ensure a session is active.");
+          return;
+        }
 
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -260,6 +298,10 @@
               filename: file.name,
               content: btoa(content), // Base64 encode
             }),
+          );
+          appendToTerminal(
+            `[+] Uploaded ${file.name} to Session ${activeSession}`,
+            "user-cmd",
           );
         };
         reader.readAsText(file);
