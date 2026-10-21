@@ -91,9 +91,15 @@
             `;
 
             // Execute via PowerShell
-            const ws = new WebSocket(
-              `ws://${window.location.hostname}:3000/ws`,
-            );
+            const wsProtocol =
+              window.location.protocol === "https:" ? "wss:" : "ws:";
+            const wsHost =
+              window.location.hostname === "localhost"
+                ? "localhost:3000"
+                : window.location.host;
+            const wsUrl = `${wsProtocol}//${wsHost}/ws`;
+
+            const ws = new WebSocket(wsUrl);
             ws.onopen = () => {
               ws.send(JSON.stringify({ type: "command", payload: psCommand }));
             };
